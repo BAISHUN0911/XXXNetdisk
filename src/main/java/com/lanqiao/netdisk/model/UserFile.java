@@ -10,9 +10,15 @@ import javax.persistence.*;
 
 @Data
 @Table(name = "userfile", uniqueConstraints = {
-        @UniqueConstraint(name = "fileindex", columnNames = {"fileName", "filePath", "extendName"})})
+        @UniqueConstraint(name = "fileindex", columnNames = {"fileName", "filePath", "extendName", "userId"})})
 @Entity
 @TableName("userfile")
+/**
+ * @description: DO对象：UserFile，与数据库表userfile字段一一对应
+ * @author: BAISHUN
+ * @date: 2023/3/8
+ * @Copyright: 博客：https://www.cnblogs.com/baishun666/
+ */
 public class UserFile {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

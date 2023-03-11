@@ -7,10 +7,13 @@ import lombok.Data;
 
 import javax.persistence.*;
 
-/**
- * 通过JPA逆向生成数据库表
- */
 
+/**
+ * @description: 通过JPA逆向生成数据库表
+ * @author: BAISHUN
+ * @date: 2023/2/23
+ * @Copyright: 博客：https://www.cnblogs.com/baishun666/
+ */
 @Data
 @Table(name = "recoveryfile")
 @Entity

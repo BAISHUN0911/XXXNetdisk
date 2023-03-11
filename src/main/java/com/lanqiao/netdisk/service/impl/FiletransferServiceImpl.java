@@ -22,7 +22,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
-
+/**
+ * @description: 文件传输业务实现类
+ * @author: BAISHUN
+ * @date: 2023/2/23
+ * @Copyright: 博客：https://www.cnblogs.com/baishun666/
+ */
 @Service
 public class FiletransferServiceImpl implements FiletransferService {
 
@@ -45,7 +50,8 @@ public class FiletransferServiceImpl implements FiletransferService {
         uploadFile.setTotalSize(uploadFileDTO.getTotalSize());
         uploadFile.setCurrentChunkSize(uploadFileDTO.getCurrentChunkSize());
 
-        String storageType = PropertiesUtil.getProperty("file.storage-type");   //获取文件存储类型。本地？OSS？
+        //获取文件存储类型。本地？OSS？
+        String storageType = PropertiesUtil.getProperty("file.storage-type");
         synchronized (FiletransferService.class){
             if ("0".equals(storageType)){
                 uploader = localStorageOperationFactory.getUploader();
@@ -54,7 +60,8 @@ public class FiletransferServiceImpl implements FiletransferService {
 
         List<UploadFile> uploadFileList = uploader.upload(request, uploadFile);
         for (int i = 0; i < uploadFileList.size(); i++) {
-            uploadFile = uploadFileList.get(i); //获取每一个分片
+            //获取每一个分片
+            uploadFile = uploadFileList.get(i);
             File file = new File();
             file.setIdentifier(uploadFileDTO.getIdentifier());
             file.setStorageType(Integer.parseInt(storageType));

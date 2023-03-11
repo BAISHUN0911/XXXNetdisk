@@ -1,6 +1,11 @@
 package com.lanqiao.netdisk.constant;
 
-
+/**
+ * @description: 文件信息常量，标识文件类型，通过文件扩展名分类文件
+ * @author: BAISHUN
+ * @date: 2023/2/25
+ * @Copyright: 博客：https://www.cnblogs.com/baishun666/
+ */
 public class FileConstant {
     public static final String[] IMG_FILE = {"bmp", "jpg", "png", "tif", "gif", "jpeg"};
     public static final String[] DOC_FILE = {"doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "hlp", "wps", "rtf", "html", "pdf"};

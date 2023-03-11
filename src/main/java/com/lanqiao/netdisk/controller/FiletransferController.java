@@ -24,11 +24,13 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.List;
 
-/**
- * 文件传输类接口
- * 作为文件传输接口，主要职责为文件上传，下载及删除
- */
 
+/**
+ * @description: 文件传输类接口：主要职责为文件上传，下载及删除
+ * @author: BAISHUN
+ * @date: 2023/2/23
+ * @Copyright: 博客：https://www.cnblogs.com/baishun666/
+ */
 @Tag(name = "filetransfer",description = "该接口为文件传输接口，主要用来做文件的上传和下载")
 @RestController
 @RequestMapping("/filetransfer")
@@ -50,32 +52,38 @@ public class FiletransferController {
     @GetMapping(value="/uploadfile")
     @ResponseBody
     public RestResult<UploadFileVO> uploadFileSpeed(UploadFileDTO uploadFileDto, @RequestHeader("token") String token) {
-        User sessionUser = userService.getUserByToken(token);   //通过客户端传来的token值认证身份，识别用户
+        User sessionUser = userService.getUserByToken(token);
         if (sessionUser == null){
             return RestResult.fail().message("未登录,请先登录");
         }
         UploadFileVO uploadFileVO = new UploadFileVO();
         HashMap<String, Object> param = new HashMap<>();
-        param.put("identifier",uploadFileDto.getIdentifier());  //文件的md5码由前端生成，传给服务器
-        synchronized (FiletransferController.class){            //添加同步锁
-            List<File> list = fileService.listByMap(param);     //mybatisplus提供Service方法，这里通过文件的md5查询文件
-            if (list != null && !list.isEmpty()){
-                File file = list.get(0);    //获取这个文件
-                UserFile userFile = new UserFile();                 //注意数据库中的userfile表，明白这个表的含义。为了避免使用外键，使用userfile表关联user和file表
-                userFile.setFileId(file.getFileId());               //设置文件id
-                userFile.setUserId(sessionUser.getUserId());        //设置用户id，通过token确定一名用户，获得用户信息
-                userFile.setFilePath(uploadFileDto.getFilePath());  //设置文件路径，通过接口参数DTO获取
-                String filename = uploadFileDto.getFilename();      //获取完整文件名，例如jingjicang.mp3，也是通过接口参数DTO获取
-                userFile.setFileName(filename.substring(0,filename.lastIndexOf(".")));  //设置文件名，jingjicang
-                userFile.setExtendName(FileUtil.getFileExtendName(filename));               //设置文件扩展名，通过自写FileUtil
-                userFile.setIsDir(0);                                   //设置该文件是非目录的
-                userFile.setUploadTime(DateUtil.getCurrentTime());      //设置文件上传时间
+        //前端生成的文件md5码传给服务器
+        param.put("identifier",uploadFileDto.getIdentifier());
+        //对给定类加锁，进入同步代码前需要获得当前class的锁
+        synchronized (FiletransferController.class){
+            //mybatisplus提供Service方法，这里通过文件的md5查询文件
+            List<File> list = fileService.listByMap(param);
+            if (list != null && !list.isEmpty()) {
+                //通过md5查到了已存在的文件，获取这个文件
+                File file = list.get(0);
+                //注意数据库中的userfile表，明白这个表的含义。为了避免使用外键，使用userfile表关联user和file表
+                UserFile userFile = new UserFile();
+                userFile.setFileId(file.getFileId());
+                userFile.setUserId(sessionUser.getUserId());
+                userFile.setFilePath(uploadFileDto.getFilePath());
+                String filename = uploadFileDto.getFilename();
+                userFile.setFileName(filename.substring(0,filename.lastIndexOf(".")));
+                userFile.setExtendName(FileUtil.getFileExtendName(filename));
+                userFile.setIsDir(0);
+                userFile.setUploadTime(DateUtil.getCurrentTime());
                 userFile.setDeleteFlag(0);
-                userFileService.save(userFile);                         //将这个文件保存到userfile表中
+                userFileService.save(userFile);
                 // fileService.increaseFilePointCount(file.getFileId());
-                uploadFileVO.setSkipUpload(true);                       //这个文件成功使用了秒传，跳过了常规上传步骤
+                uploadFileVO.setSkipUpload(true);
             }else {
-                uploadFileVO.setSkipUpload(false);      //如果查询出的文件集合为空，证明这个文件没上传过，不能文件秒传，只能通过普通方式上传。
+                //如果查询出的文件集合为空，证明这个文件没上传过，不能文件秒传，只能通过普通方式上传。
+                uploadFileVO.setSkipUpload(false);
             }
         }
         return RestResult.success().data(uploadFileVO);
@@ -85,7 +93,6 @@ public class FiletransferController {
     @RequestMapping(value = "/uploadfile", method = RequestMethod.POST)
     @ResponseBody
     public RestResult<UploadFileVO> uploadFile(HttpServletRequest request, UploadFileDTO uploadFileDto, @RequestHeader("token") String token) {
-
         User sessionUser = userService.getUserByToken(token);
         if (sessionUser == null){
             return RestResult.fail().message("未登录,请先登录");

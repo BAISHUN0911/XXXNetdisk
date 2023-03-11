@@ -17,16 +17,26 @@ import com.lanqiao.netdisk.vo.UserfileListVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import java.util.*;
 
+/**
+ * @description: 文件接口，文件/目录的创建、删除、移动、复制等
+ * @author: BAISHUN
+ * @date: 2023/2/23
+ * @Copyright: 博客：https://www.cnblogs.com/baishun666/
+ */
 @Tag(name = "file", description = "该接口为文件接口，主要用来做一些文件的基本操作，如创建目录，删除，移动，复制等。")
 @Slf4j
 @RestController
 @RequestMapping("/file")
 public class FileController {
+
+    private Logger logger = LoggerFactory.getLogger(FileController.class);
 
     @Resource
     FileService fileService;
@@ -53,35 +63,44 @@ public class FileController {
         userFile.setUserId(sessionUser.getUserId());
         userFile.setFileName(createFileDto.getFileName());
         userFile.setFilePath(createFileDto.getFilePath());
-        userFile.setIsDir(1);                       //创建的是文件夹
+        //创建的是文件夹
+        userFile.setIsDir(1);
         userFile.setUploadTime(DateUtil.getCurrentTime());
-        userFile.setDeleteFlag(0);                  //标志为0代表未删除
+        //标志为0代表未删除
+        userFile.setDeleteFlag(0);
         userfileService.save(userFile);
         return RestResult.success();
-
     }
 
 
     @Operation(summary = "获取文件列表", description = "用来做前台文件列表展示", tags = { "file" })
     @GetMapping(value = "/getfilelist")
     @ResponseBody
-    public RestResult<UserfileListVO> getUserfileList(UserfileListDTO userfileListDTO,@RequestHeader String token){
+    public RestResult<UserfileListVO> getUserfileList(UserfileListDTO userfileListDTO, @RequestHeader String token){
         User sessionUser = userService.getUserByToken(token);
         if(sessionUser==null){
             return RestResult.fail().message("token验证失败");
         }
-        System.out.println(userfileListDTO.getFilePath()+"--"+sessionUser.getUserId()+"--"+userfileListDTO.getCurrentPage()+"--"+userfileListDTO.getPageCount());
+        logger.info("当前目录：{}" + userfileListDTO.getFilePath() +
+                    "当前用户ID：{}" + sessionUser.getUserId() +
+                    "当前页：{}" + userfileListDTO.getCurrentPage() +
+                    "每页显示数据条数：{}" + userfileListDTO.getPageCount()
+        );
         List<UserfileListVO> fileList = userfileService.getUserFileByFilePath(userfileListDTO.getFilePath(),
                 sessionUser.getUserId(),
                 userfileListDTO.getCurrentPage(),
                 userfileListDTO.getPageCount()
                 );
-        System.out.println("fileList======================>"+fileList);
+        logger.info("获取到的文件列表" + JSON.toJSONString(fileList));
+
         LambdaQueryWrapper<UserFile> userFileLambdaQueryWrapper = new LambdaQueryWrapper<>();
         userFileLambdaQueryWrapper.eq(UserFile::getUserId, sessionUser.getUserId())
                 .eq(UserFile::getFilePath,userfileListDTO.getFilePath())
                 .eq(UserFile::getDeleteFlag,0);
         int count = userfileService.count(userFileLambdaQueryWrapper);
+        logger.info("当前目录下文件数：{}" + count);
+
+        //count用于统计当前目录下文件数量，list为文件集合
         HashMap<String, Object> map = new HashMap<>();
         map.put("count",count);
         map.put("list",fileList);

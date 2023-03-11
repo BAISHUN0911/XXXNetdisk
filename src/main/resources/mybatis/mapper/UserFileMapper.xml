@@ -33,6 +33,7 @@
         and userId = #{userId}
         and deleteFlag = 0
     </sql>
+
     <sql id="selectByNotExtendName">
         left join file on file.fileId = userfile.fileId
         where extendName not in
@@ -80,5 +81,11 @@
         LEFT JOIN file ON file.fileId = userfile.fileId
         WHERE userfile.userId = #{userId} and deleteFlag = 0
     </select>
+
+<!--    <update id="deleteDir">-->
+<!--        update userfile-->
+<!--        set deleteFlag=1,deleteBatchNum=#{deleteBatchNum}-->
+<!--        WHERE userId=30 AND filePath LIKE '#{}%';-->
+<!--    </update>-->
 
 </mapper>

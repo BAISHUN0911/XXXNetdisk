@@ -8,9 +8,11 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 
 /**
- * 用来读取环境变量
+ * @description: 用于读取自定义配置信息，如
+ * @author: BAISHUN
+ * @date: 2023/3/8
+ * @Copyright: 博客：https://www.cnblogs.com/baishun666/
  */
-
 @Configuration
 public class PropertiesConfig {
 

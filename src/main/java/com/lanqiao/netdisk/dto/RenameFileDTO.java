@@ -7,6 +7,7 @@ import lombok.Data;
 @Schema(name = "重命名文件DTO",required = true)
 public class RenameFileDTO {
 
+    @Schema(description = "用户文件ID")
     private Long userFileId;
 
     @Schema(description = "文件名")

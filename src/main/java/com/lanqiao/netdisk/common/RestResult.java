@@ -3,9 +3,10 @@ package com.lanqiao.netdisk.common;
 import lombok.Data;
 
 /**
- * 统一结果返回
- *
- * @param <T>
+ * @description: 统一结果返回
+ * @author: BAISHUN
+ * @date: 2023/3/8
+ * @Copyright: 博客：https://www.cnblogs.com/baishun666/
  */
 @Data
 public class RestResult<T> {

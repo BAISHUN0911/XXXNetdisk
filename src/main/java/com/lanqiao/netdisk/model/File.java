@@ -11,6 +11,12 @@ import javax.persistence.*;
 @Table(name = "file")
 @Entity
 @TableName("file")
+/**
+ * @description: DO对象：File，与数据库表file字段一一对应
+ * @author: BAISHUN
+ * @date: 2023/3/8
+ * @Copyright: 博客：https://www.cnblogs.com/baishun666/
+ */
 public class File {
 
     @Id
@@ -34,7 +40,8 @@ public class File {
     @Column(columnDefinition="varchar(32) comment 'md5唯一标识'")
     private String identifier;
 
+    /** 用来保存文件的引用数量，当上传文件在服务器已存在，则 pointCount 加 1，文件删除的时候减 1 */
     @Column(columnDefinition="int(1) comment '引用数量'")
-    private Integer pointCount;     //用来保存文件的引用数量，当上传文件在服务器已存在，则 pointCount 加 1，文件删除的时候减 1
+    private Integer pointCount;
 
 }
