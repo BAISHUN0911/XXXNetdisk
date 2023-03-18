@@ -15,12 +15,9 @@ public class DeleteFileDTO {
     @Schema(description = "用户文件id")
     private Long userFileId;
     @Schema(description = "文件路径")
-    @Deprecated
     private String filePath;
     @Schema(description = "文件名")
-    @Deprecated
     private String fileName;
     @Schema(description = "是否是目录：0否1是")
-    @Deprecated
     private Integer isDir;
 }

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import javax.persistence.*;
+import java.util.Date;
 
 
 /**
@@ -21,18 +22,18 @@ import javax.persistence.*;
 public class RecoveryFile {
 
     @Id
-    @Column(columnDefinition = "bigint(20)")
+    @Column(columnDefinition = "bigint(20) comment '回收站文件id'")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @TableId(type = IdType.AUTO)
     private Long recoveryFileId;
 
-    @Column(columnDefinition = "bigint(20)")
+    @Column(columnDefinition = "bigint(20) comment '用户文件id'")
     private Long userFileId;
 
-    @Column(columnDefinition = "varchar(25)")
-    private String deleteTime;
+    @Column(columnDefinition = "datetime comment '删除时间'")
+    private Date deleteTime;
 
-    @Column(columnDefinition = "varchar(50)")
+    @Column(columnDefinition = "varchar(36) comment '删除批次号'")
     private String deleteBatchNum;
 
 

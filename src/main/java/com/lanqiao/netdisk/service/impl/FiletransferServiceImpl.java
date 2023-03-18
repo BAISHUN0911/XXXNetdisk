@@ -21,6 +21,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.UnsupportedEncodingException;
+import java.util.Date;
 import java.util.List;
 /**
  * @description: 文件传输业务实现类
@@ -79,7 +80,7 @@ public class FiletransferServiceImpl implements FiletransferService {
                 userFile.setDeleteFlag(0);
                 userFile.setUserId(userId);
                 userFile.setIsDir(0);
-                userFile.setUploadTime(DateUtil.getCurrentTime());
+                userFile.setUpdateTime(new Date());
                 userFileMapper.insert(userFile);
             }
         }

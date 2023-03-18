@@ -12,6 +12,7 @@ import com.lanqiao.netdisk.service.FileService;
 import com.lanqiao.netdisk.service.UserFileService;
 import com.lanqiao.netdisk.service.UserService;
 import com.lanqiao.netdisk.util.DateUtil;
+import com.lanqiao.netdisk.vo.DeleteFileVO;
 import com.lanqiao.netdisk.vo.TreeNodeVO;
 import com.lanqiao.netdisk.vo.UserfileListVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,6 +20,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -65,7 +67,7 @@ public class FileController {
         userFile.setFilePath(createFileDto.getFilePath());
         //创建的是文件夹
         userFile.setIsDir(1);
-        userFile.setUploadTime(DateUtil.getCurrentTime());
+        userFile.setUpdateTime(new Date());
         //标志为0代表未删除
         userFile.setDeleteFlag(0);
         userfileService.save(userFile);
@@ -84,8 +86,7 @@ public class FileController {
         logger.info("当前目录：{}" + userfileListDTO.getFilePath() +
                     "当前用户ID：{}" + sessionUser.getUserId() +
                     "当前页：{}" + userfileListDTO.getCurrentPage() +
-                    "每页显示数据条数：{}" + userfileListDTO.getPageCount()
-        );
+                    "每页显示数据条数：{}" + userfileListDTO.getPageCount());
         List<UserfileListVO> fileList = userfileService.getUserFileByFilePath(userfileListDTO.getFilePath(),
                 sessionUser.getUserId(),
                 userfileListDTO.getCurrentPage(),
@@ -98,7 +99,7 @@ public class FileController {
                 .eq(UserFile::getFilePath,userfileListDTO.getFilePath())
                 .eq(UserFile::getDeleteFlag,0);
         int count = userfileService.count(userFileLambdaQueryWrapper);
-        logger.info("当前目录下文件数：{}" + count);
+        logger.info("当前目录下文件数:{}" + count);
 
         //count用于统计当前目录下文件数量，list为文件集合
         HashMap<String, Object> map = new HashMap<>();
@@ -126,7 +127,11 @@ public class FileController {
     @ResponseBody
     public RestResult deleteFile(@RequestBody DeleteFileDTO deleteFileDTO,@RequestHeader("token")String token){
         User sessionUser = userService.getUserByToken(token);
-        userfileService.deleteUserFile(deleteFileDTO.getUserFileId(), sessionUser.getUserId());
+        if (deleteFileDTO.getIsDir()==1) {
+            userfileService.updateFileDeleteStateByFilePath(deleteFileDTO.getUserFileId(), deleteFileDTO.getFileName(), deleteFileDTO.getFilePath(), sessionUser.getUserId());
+        }else {
+            userfileService.deleteUserFile(deleteFileDTO.getUserFileId(), sessionUser.getUserId());
+        }
         return RestResult.success();
     }
 
@@ -180,57 +185,6 @@ public class FileController {
         return result;
     }
 
-    private TreeNodeVO insertTreeNode(TreeNodeVO treeNode, String filePath, Queue<String> nodeNameQueue) {
-        List<TreeNodeVO> childrenTreeNodes = treeNode.getChildren();
-        String currentNodeName = nodeNameQueue.peek();
-        if (currentNodeName == null){
-            return treeNode;
-        }
-        Map<String, String> map = new HashMap<>();
-        filePath = filePath + currentNodeName + "/";
-        map.put("filePath", filePath);
-
-        if (!isExistPath(childrenTreeNodes, currentNodeName)){  //1、判断有没有该子节点，如果没有则插入
-            //插入
-            TreeNodeVO resultTreeNode = new TreeNodeVO();
-            resultTreeNode.setAttributes(map);
-            resultTreeNode.setLabel(nodeNameQueue.poll());
-            // resultTreeNode.setId(treeid++);
-            childrenTreeNodes.add(resultTreeNode);
-        }else{  //2、如果有，则跳过
-            nodeNameQueue.poll();
-        }
-
-        if (nodeNameQueue.size() != 0) {
-            for (int i = 0; i < childrenTreeNodes.size(); i++) {
-                TreeNodeVO childrenTreeNode = childrenTreeNodes.get(i);
-                if (currentNodeName.equals(childrenTreeNode.getLabel())){
-                    childrenTreeNode = insertTreeNode(childrenTreeNode, filePath, nodeNameQueue);
-                    childrenTreeNodes.remove(i);
-                    childrenTreeNodes.add(childrenTreeNode);
-                    treeNode.setChildren(childrenTreeNodes);
-                }
-            }
-        }else{
-            treeNode.setChildren(childrenTreeNodes);
-        }
-        return treeNode;
-    }
-
-    private boolean isExistPath(List<TreeNodeVO> childrenTreeNodes, String path) {
-        boolean isExistPath = false;
-        try {
-            for (int i = 0; i < childrenTreeNodes.size(); i++){
-                if (path.equals(childrenTreeNodes.get(i).getLabel())){
-                    isExistPath = true;
-                }
-            }
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-        return isExistPath;
-    }
-
     @Operation(summary = "文件移动", description = "可以移动文件或者目录", tags = { "file" })
     @RequestMapping(value = "/movefile", method = RequestMethod.POST)
     @ResponseBody
@@ -282,30 +236,72 @@ public class FileController {
             //这是一个文件夹
             LambdaUpdateWrapper<UserFile> lambdaUpdateWrapper = new LambdaUpdateWrapper<>();
             lambdaUpdateWrapper.set(UserFile::getFileName,renameFileDto.getFileName())
-                    .set(UserFile::getUploadTime,DateUtil.getCurrentTime())
+                    .set(UserFile::getUpdateTime,new Date())
                     .eq(UserFile::getUserFileId,renameFileDto.getUserFileId());
             userfileService.update(lambdaUpdateWrapper);
             userfileService.replaceUserFilePath(userFile.getFilePath()+renameFileDto.getFileName()+"/",
                     userFile.getFilePath()+userFile.getFileName()+"/", sessionUser.getUserId());
         }else {
-            //这不是一个文件夹，是一个文件
-            File file = fileService.getById(userFile.getFileId());      //这里获取到File对象并没有作用
-            /**
-             * 获取LambdaUpdateWrapper对象，传入UserFile对象
-             * 调用该对象的eq方法锁定文件，通过DTO中的userfileid
-             * 然后对该文件进行改名，修改文件上传时间为当前时间
-             */
             LambdaUpdateWrapper<UserFile> lambdaUpdateWrapper = new LambdaUpdateWrapper<>();
-            lambdaUpdateWrapper.set(UserFile::getFileName,renameFileDto.getFileName())
-                    .set(UserFile::getUploadTime,DateUtil.getCurrentTime())
-                    .eq(UserFile::getUserFileId,renameFileDto.getUserFileId());
+            lambdaUpdateWrapper.set(UserFile::getFileName, renameFileDto.getFileName())
+                    .set(UserFile::getUpdateTime, new Date())
+                    .eq(UserFile::getUserFileId, renameFileDto.getUserFileId());
 
-            userfileService.update(lambdaUpdateWrapper);        //对于一个文件，直接更新改名就行
+            userfileService.update(lambdaUpdateWrapper);
         }
         return RestResult.success();
     }
 
+    private TreeNodeVO insertTreeNode(TreeNodeVO treeNode, String filePath, Queue<String> nodeNameQueue) {
+        List<TreeNodeVO> childrenTreeNodes = treeNode.getChildren();
+        String currentNodeName = nodeNameQueue.peek();
+        if (currentNodeName == null){
+            return treeNode;
+        }
+        Map<String, String> map = new HashMap<>();
+        filePath = filePath + currentNodeName + "/";
+        map.put("filePath", filePath);
 
+        if (!isExistPath(childrenTreeNodes, currentNodeName)){  //1、判断有没有该子节点，如果没有则插入
+            //插入
+            TreeNodeVO resultTreeNode = new TreeNodeVO();
+            resultTreeNode.setAttributes(map);
+            resultTreeNode.setLabel(nodeNameQueue.poll());
+            // resultTreeNode.setId(treeid++);
+            childrenTreeNodes.add(resultTreeNode);
+        }else{  //2、如果有，则跳过
+            nodeNameQueue.poll();
+        }
+
+        if (nodeNameQueue.size() != 0) {
+            for (int i = 0; i < childrenTreeNodes.size(); i++) {
+                TreeNodeVO childrenTreeNode = childrenTreeNodes.get(i);
+                if (currentNodeName.equals(childrenTreeNode.getLabel())){
+                    childrenTreeNode = insertTreeNode(childrenTreeNode, filePath, nodeNameQueue);
+                    childrenTreeNodes.remove(i);
+                    childrenTreeNodes.add(childrenTreeNode);
+                    treeNode.setChildren(childrenTreeNodes);
+                }
+            }
+        }else{
+            treeNode.setChildren(childrenTreeNodes);
+        }
+        return treeNode;
+    }
+
+    private boolean isExistPath(List<TreeNodeVO> childrenTreeNodes, String path) {
+        boolean isExistPath = false;
+        try {
+            for (int i = 0; i < childrenTreeNodes.size(); i++){
+                if (path.equals(childrenTreeNodes.get(i).getLabel())){
+                    isExistPath = true;
+                }
+            }
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return isExistPath;
+    }
 
 
 }

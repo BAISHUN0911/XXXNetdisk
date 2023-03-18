@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
@@ -76,7 +77,7 @@ public class FiletransferController {
                 userFile.setFileName(filename.substring(0,filename.lastIndexOf(".")));
                 userFile.setExtendName(FileUtil.getFileExtendName(filename));
                 userFile.setIsDir(0);
-                userFile.setUploadTime(DateUtil.getCurrentTime());
+                userFile.setUpdateTime(new Date());
                 userFile.setDeleteFlag(0);
                 userFileService.save(userFile);
                 // fileService.increaseFilePointCount(file.getFileId());

@@ -12,16 +12,18 @@ import com.lanqiao.netdisk.model.RecoveryFile;
 import com.lanqiao.netdisk.model.UserFile;
 import com.lanqiao.netdisk.service.UserFileService;
 import com.lanqiao.netdisk.util.DateUtil;
+import com.lanqiao.netdisk.vo.DeleteFileVO;
 import com.lanqiao.netdisk.vo.UserfileListVO;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @description: 用户文件业务实现类
@@ -29,22 +31,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @date: 2023/2/23
  * @Copyright: 博客：https://www.cnblogs.com/baishun666/
  */
-@Service
+@Service("userFileService")
 public class UserFileServiceImpl extends ServiceImpl<UserFileMapper, UserFile> implements UserFileService {
 
     private Logger logger = LoggerFactory.getLogger(UserFileServiceImpl.class);
-
-    /**
-     * 最大20个线程
-     */
-//    public static Executor executor = Executors.newFixedThreadPool(20);
-
-    static final int CORE_POOL_SIZE = 5;
-    static final int MAX_POOL_SIZE = 11;
-    static final Long KEEP_ALIVE_TIME = 60L;
-    static final TimeUnit timeUnit = TimeUnit.SECONDS;
-    static final ArrayBlockingQueue<Runnable> WORK_QUEUE = new ArrayBlockingQueue<>(100);
-    static ThreadPoolExecutor executor = null;
 
     @Resource
     UserFileMapper userFileMapper;
@@ -53,14 +43,16 @@ public class UserFileServiceImpl extends ServiceImpl<UserFileMapper, UserFile> i
     @Resource
     RecoveryFileMapper recoveryFileMapper;
 
+    @Resource(name = "taskExecutor")
+    ThreadPoolTaskExecutor executor;
 
     @Override
     public List<UserfileListVO> getUserFileByFilePath(String filePath, Long userId, Long currentPage, Long pageCount) {
-        Long beginCount = (currentPage-1)*pageCount;
+        Long beginCount = (currentPage-1) * pageCount;
         UserFile userFile = new UserFile();
         userFile.setUserId(userId);
         userFile.setFilePath(filePath);
-        System.out.println("userFile"+userFile+"beginCount"+beginCount+"pageCount"+pageCount);
+        logger.info("文件目录：{}", filePath);
         List<UserfileListVO> fileList = userFileMapper.userfileList(userFile, beginCount, pageCount);
         return fileList;
     }
@@ -102,102 +94,68 @@ public class UserFileServiceImpl extends ServiceImpl<UserFileMapper, UserFile> i
 
     @Override
     public void deleteUserFile(Long userFileId, Long sessionUserId) {
-        UserFile userFile = userFileMapper.selectById(userFileId);
-        //用UUID作为删除文件的删除批次号
         String uuid = UUID.randomUUID().toString();
-        if (userFile.getIsDir() == 1){
-            //这是一个目录，删除目录下所有文件
-            LambdaUpdateWrapper<UserFile> userFileLambdaUpdateWrapper = new LambdaUpdateWrapper<>();
-            userFileLambdaUpdateWrapper.set(UserFile::getDeleteFlag,1)
-                    .set(UserFile::getDeleteBatchNum,uuid)
-                    .set(UserFile::getDeleteTime, DateUtil.getCurrentTime())
-                    .eq(UserFile::getUserFileId,userFileId);
-            userFileMapper.update(null,userFileLambdaUpdateWrapper);
-            String filePath = userFile.getFilePath()+userFile.getFileName()+"/";
-            updateFileDeleteStateByFilePath(filePath,userFile.getDeleteBatchNum(),sessionUserId);
-        }else {
-            UserFile userFileTemp = userFileMapper.selectById(userFileId);
-//            File file = fileMapper.selectById(userFileTemp.getFileId());
-            LambdaUpdateWrapper<UserFile> userFileLambdaUpdateWrapper = new LambdaUpdateWrapper<>();
-            userFileLambdaUpdateWrapper.set(UserFile::getDeleteFlag,1)
-                    .set(UserFile::getDeleteTime,DateUtil.getCurrentTime())
-                    .eq(UserFile::getUserFileId,userFileTemp.getUserFileId());
-            userFileMapper.update(null,userFileLambdaUpdateWrapper);
-        }
+        Date now = new Date();
+        logger.info("用户：{}执行删除文件操作，用户文件id：{}，删除批次号：{}", sessionUserId, userFileId, uuid);
+        LambdaUpdateWrapper<UserFile> userFileLambdaUpdateWrapper = new LambdaUpdateWrapper<>();
+        userFileLambdaUpdateWrapper.set(UserFile::getDeleteFlag,1)
+                .set(UserFile::getDeleteTime, now)
+                .set(UserFile::getDeleteBatchNum, uuid)
+                .eq(UserFile::getUserFileId,userFileId);
+        userFileMapper.update(null,userFileLambdaUpdateWrapper);
+        logger.info("文件删除成功，文件id：{}", userFileId);
         //将这次删除的文件添加到recoveryfile表记录
         RecoveryFile recoveryFile = new RecoveryFile();
         recoveryFile.setUserFileId(userFileId);
-        recoveryFile.setDeleteTime(DateUtil.getCurrentTime());
+        recoveryFile.setDeleteTime(now);
         recoveryFile.setDeleteBatchNum(uuid);
         recoveryFileMapper.insert(recoveryFile);
+        logger.info("被删除的文件已记录在回收站");
     }
 
     @Override
-    public void updateFileDeleteStateByFilePath(String filePath, String deleteBatchNum, Long userId) {
+    @Async
+    public CompletableFuture<String> updateFileDeleteStateByFilePath(Long userFileId, String fileName, String filePath, Long userId) {
+        String uuid = UUID.randomUUID().toString();
+        String deletePath = filePath + fileName + "/";
+        logger.info("用户：{}执行删除文件夹操作，删除的目录为：{}，删除批次号：{}", userId, deletePath, uuid);
+        logger.info("当前执行删除任务的线程：" + Thread.currentThread().getName());
+        DeleteFileVO deleteFileVO = new DeleteFileVO();
+        deleteFileVO.setUserId(userId);
+        deleteFileVO.setUserFileId(userFileId);
+        deleteFileVO.setDeletePath(deletePath);
+        deleteFileVO.setDeleteBatchNum(uuid);
+        userFileMapper.deleteDir(deleteFileVO);
+        logger.info(filePath + "下的" + fileName + "文件夹删除成功");
+        return CompletableFuture.completedFuture("异步方法执行完成");
+    }
+
+    @Override
+    @Async
+    public CompletableFuture<String> updateFileDeleteStateByFilePath2(String filePath, String deleteBatchNum, Long userId) {
         logger.info("用户：{}执行删除文件夹操作，删除的目录为：{}，删除批次号：{}", userId, filePath, deleteBatchNum);
-        executor = new ThreadPoolExecutor(CORE_POOL_SIZE, MAX_POOL_SIZE, KEEP_ALIVE_TIME, timeUnit, WORK_QUEUE);
-        executor.submit(() -> {
-            logger.info("当前执行删除任务的线程：" + Thread.currentThread().getName());
+        List<UserFile> fileList = selectFileTreeListLikeFilePath(filePath, userId);
+        //有个问题，这里的length指的是文件数还是这个filepath下的文件+文件夹数
+        int length = fileList.size();
+        if(length >= 0) {
+            //模拟异步方法发生运行时异常
+            throw new RuntimeException("异步方法执行发生异常");
+        }
+        logger.info("该文件夹所包含文件数：{}", length);
+        for (int i = 0; i < fileList.size(); i++) {
+            UserFile userFileTemp = fileList.get(i);
+            logger.info("当前执行删除任务的线程：" + Thread.currentThread().getName() + "目标删除文件：" + userFileTemp.getFileName());
+            //标记删除标志
             LambdaUpdateWrapper<UserFile> userFileLambdaUpdateWrapper = new LambdaUpdateWrapper<>();
-            userFileLambdaUpdateWrapper
-                    .set(UserFile::getDeleteFlag, 1)
+            userFileLambdaUpdateWrapper.set(UserFile::getDeleteFlag, 1)
                     .set(UserFile::getDeleteTime, DateUtil.getCurrentTime())
                     .set(UserFile::getDeleteBatchNum, deleteBatchNum)
-                    .eq(UserFile::getDeleteFlag, 0)
-                    .eq(UserFile::getUserId, userId)
-                    .likeRight(UserFile::getFilePath, filePath);
-            userFileMapper.update(null,userFileLambdaUpdateWrapper);
-            logger.info("删除任务执行完成");
-        });
-        logger.info(Thread.currentThread().getName()+"线程已执行完，但执行删除任务的线程可能还在工作");
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+                    .eq(UserFile::getUserFileId, userFileTemp.getUserFileId())
+                    .eq(UserFile::getDeleteFlag, 0);
+            userFileMapper.update(null, userFileLambdaUpdateWrapper);
         }
-        logger.info("文件夹删除成功，filePath：" + filePath);
-    }
-
-    @Override
-    public void updateFileDeleteStateByFilePath2(String filePath, String deleteBatchNum, Long userId) {
-        logger.info("用户：{}执行删除文件夹操作，删除的目录为：{}，删除批次号：{}", userId, filePath, deleteBatchNum);
-        AtomicInteger totalWorks = new AtomicInteger(0);
-        new Thread(() -> {
-            List<UserFile> fileList = selectFileTreeListLikeFilePath(filePath, userId);
-            //有个问题，这里的length指的是文件数还是这个filepath下的文件+文件夹数
-            int length = fileList.size();
-            for (int i = 0; i < fileList.size(); i++) {
-                UserFile userFileTemp = fileList.get(i);
-                executor.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        logger.info("当前执行删除任务的线程：" + Thread.currentThread().getName() + "目标删除文件：" + userFileTemp.getFileName());
-                        //标记删除标志
-                        LambdaUpdateWrapper<UserFile> userFileLambdaUpdateWrapper = new LambdaUpdateWrapper<>();
-                        userFileLambdaUpdateWrapper.set(UserFile::getDeleteFlag, 1)
-                                .set(UserFile::getDeleteTime, DateUtil.getCurrentTime())
-                                .set(UserFile::getDeleteBatchNum, deleteBatchNum)
-                                .eq(UserFile::getUserFileId, userFileTemp.getUserFileId())
-                                .eq(UserFile::getDeleteFlag, 0);
-                        userFileMapper.update(null,userFileLambdaUpdateWrapper);
-                        totalWorks.incrementAndGet();
-                        logger.info("当前totalWorks值：" + totalWorks);
-                    }
-                });
-            }
-            if (totalWorks.get() == length) {
-                logger.info("文件夹删除成功，共删除文件数：{}，全部删除成功", length);
-            }else {
-                logger.info("文件夹删除成功，成功删除文件数：{}，失败数：{}", totalWorks, length-totalWorks.get());
-            }
-        }).start();
-        logger.info("正在执行删除操作...");
-        try {
-            Thread.sleep(1000 * 15);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        executor.shutdown();
+        logger.info(filePath + "文件夹删除成功");
+        return CompletableFuture.completedFuture("异步方法执行完成");
     }
 
     @Override

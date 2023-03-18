@@ -82,10 +82,9 @@
         WHERE userfile.userId = #{userId} and deleteFlag = 0
     </select>
 
-<!--    <update id="deleteDir">-->
-<!--        update userfile-->
-<!--        set deleteFlag=1,deleteBatchNum=#{deleteBatchNum}-->
-<!--        WHERE userId=30 AND filePath LIKE '#{}%';-->
-<!--    </update>-->
+    <update id="deleteDir" parameterType="com.lanqiao.netdisk.vo.DeleteFileVO">
+        UPDATE userfile SET deleteFlag=1,deleteTime=NOW(),deleteBatchNum=#{deleteBatchNum}
+        WHERE deleteFlag = 0 AND userId = #{userId} AND filePath LIKE '${deletePath}%' or userFileId = #{userFileId}
+    </update>
 
 </mapper>

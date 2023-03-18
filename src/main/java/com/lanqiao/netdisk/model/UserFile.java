@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import javax.persistence.*;
+import java.util.Date;
 
 @Data
 @Table(name = "userfile", uniqueConstraints = {
@@ -32,28 +33,28 @@ public class UserFile {
     @Column(columnDefinition="bigint(20) comment '文件id'")
     private Long fileId;
 
-    @Column(columnDefinition="varchar(100) comment '文件名'")
-    private String fileName;
-
     @Column(columnDefinition="varchar(500) comment '文件路径'")
     private String filePath;
 
-    @Column(columnDefinition="varchar(100) comment '扩展名'")
+    @Column(columnDefinition="varchar(100) comment '文件名'")
+    private String fileName;
+
+    @Column(columnDefinition="varchar(10) comment '扩展名'")
     private String extendName;
 
     @Column(columnDefinition="int(1) comment '是否是目录 0-否, 1-是'")
     private Integer isDir;
 
-    @Column(columnDefinition="varchar(25) comment '上传时间'")
-    private String uploadTime;
-
-    @Column(columnDefinition="int(11) comment '删除标志 0-未删除 1-已删除'")
+    @Column(columnDefinition="int(1) comment '删除标志 0-未删除 1-已删除'")
     private Integer deleteFlag;
 
-    @Column(columnDefinition="varchar(25) comment '删除时间'")
-    private String deleteTime;
-
-    @Column(columnDefinition = "varchar(50) comment '删除批次号'")
+    @Column(columnDefinition = "varchar(36) comment '删除批次号'")
     private String deleteBatchNum;
+
+    @Column(columnDefinition="datetime comment '上传时间/最后修改时间'")
+    private Date updateTime;
+
+    @Column(columnDefinition="datetime comment '删除时间'")
+    private Date deleteTime;
 
 }

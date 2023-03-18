@@ -3,10 +3,13 @@ package com.lanqiao.netdisk.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.lanqiao.netdisk.model.UserFile;
+import com.lanqiao.netdisk.vo.DeleteFileVO;
 import com.lanqiao.netdisk.vo.UserfileListVO;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
 /**
  * @description: 用户文件业务
  * @author: BAISHUN
@@ -19,8 +22,8 @@ public interface UserFileService extends IService<UserFile> {
      * 根据路径获取用户文件
      * @param filePath 文件目录
      * @param userId 用户ID
-     * @param currentPage 当前页
-     * @param pageCount 总页数
+     * @param currentPage 当前页数
+     * @param pageCount 每页数据量
      * @return
      */
     List<UserfileListVO> getUserFileByFilePath(String filePath, Long userId, Long currentPage, Long pageCount);
@@ -36,24 +39,33 @@ public interface UserFileService extends IService<UserFile> {
     Map<String,Object> getUserFileByType(int fileType,Long currentPage,Long pageCount,Long userId);
 
     /**
-     * 删除文件
+     * 删除文件,只能删除文件
      * @param userFileId 用户文件ID
      * @param sessionUserId
      */
     void deleteUserFile(Long userFileId, Long sessionUserId);
 
     /**
-     * 通过文件目录标志文件删除状态
      * 删除目录时需要将该文件目录下的所有文件都放入回收站，而代码实现则是通过一个删除标志来实现，
      * 为了防止文件目录下文件特别多，因此这里需要创建一个新的线程去执行，防止出现阻塞
-     * @param filePath 文件目录
-     * @param deleteBatchNum 删除批次号
-     * @param userId 用户ID
+     * 使用了ThreadPoolTaskExecutor线程池技术，并为方法添加@Async注解代表是异步执行
+     * @param userFileId 用户文件id
+     * @param fileName 文件夹名
+     * @param filePath 该文件夹所在路径
+     * @param userId 用户id
+     * @return
      */
-    void updateFileDeleteStateByFilePath(String filePath, String deleteBatchNum, Long userId);
+    CompletableFuture<String> updateFileDeleteStateByFilePath(Long userFileId, String fileName, String filePath, Long userId);
 
+    /**
+     * 先查找该文件夹下文件树，再执行删除操作
+     * @param filePath 文件夹
+     * @param deleteBatchNum 删除标志
+     * @param userId 用户ID
+     * @return
+     */
     @Deprecated
-    void updateFileDeleteStateByFilePath2(String filePath, String deleteBatchNum, Long userId);
+    CompletableFuture<String> updateFileDeleteStateByFilePath2(String filePath, String deleteBatchNum, Long userId);
 
     /**
      * 根据用户ID和目录查询该目录下的所有文件（文件+文件夹）
